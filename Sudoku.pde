@@ -122,6 +122,15 @@ void keyReleased() {
     if(key == 'v')
         if(validateBoard())
             drawGrid(color(0, 255, 64));
+
+    //Debugging
+    if(key == 'd'){
+        int[][] eBoard;
+        eBoard = calcBoardEntropy();
+
+        boolean[] freeNums;
+        freeNums = getCellFreeNums(2, 3);
+    }
 }
 
 boolean validateBoard(){
@@ -179,8 +188,8 @@ boolean validateSquare(int r, int c){
     c /= d;
 
     boolean[] usedNums = new boolean[dim];
-    for(int sr = r; sr < (r + 1) * d; sr++)
-        for(int sc = c; sc < (c + 1) * d; sc++)
+    for(int sr = r * d; sr < (r + 1) * d; sr++)
+        for(int sc = c * d; sc < (c + 1) * d; sc++)
             if(board[sr][sc] != 0)
                 usedNums[board[sr][sc] - 1] = true;
 
@@ -193,40 +202,46 @@ boolean validateSquare(int r, int c){
 
 boolean[] freeNumsRow(int r){
     boolean[] freeNums = new boolean[dim];
+    for(int i = 0; i < dim; i++)
+        freeNums[i] = true;
 
-    for(int c = 0; c < dim; c++)
+    for(int c = 0; c < dim; c++) 
         if(board[r][c] != 0)
-            freeNums[board[r][c] - 1] = true;
+            freeNums[board[r][c] - 1] = false;
 
     return freeNums;
 }
 
 boolean[] freeNumsCol(int c){
     boolean[] freeNums = new boolean[dim];
+    for(int i = 0; i < dim; i++)
+        freeNums[i] = true;
 
     for(int r = 0; r < dim; r++)
         if(board[r][c] != 0)
-            freeNums[board[r][c] - 1] = true;
+            freeNums[board[r][c] - 1] = false;
 
     return freeNums;
 }
 
 boolean[] freeNumsSqr(int r, int c){
     boolean[] freeNums = new boolean[dim];
+    for(int i = 0; i < dim; i++)
+        freeNums[i] = true;
 
-    int d = floor(sqrt(dim));
+    int d = floor(sqrt(dim)); //<>//
     r /= d;
     c /= d;
 
-    for(int sr = r; sr < (r + 1) * d; sr++)
-        for(int sc = c; sc < (c + 1) * d; sc++)
+    for(int sr = r * d; sr < (r + 1) * d; sr++)
+        for(int sc = c * d; sc < (c + 1) * d; sc++)
             if(board[sr][sc] != 0)
-                freeNums[board[sr][sc] - 1] = true;
+                freeNums[board[sr][sc] - 1] = false;
 
     return freeNums;
 }
 
-boolean[] getCellFreeNums(int r, int c){
+boolean[] getCellFreeNums(int r, int c){ 
     boolean[] rowNums, colNums, sqrNums;
     rowNums = freeNumsRow(r);
     colNums = freeNumsCol(c);
@@ -234,7 +249,7 @@ boolean[] getCellFreeNums(int r, int c){
 
     boolean[] freeNums = new boolean[dim];
     for(int i = 0; i < dim; i++)
-        freeNums[i] = rowNums[i] ^ colNums[i] ^ sqrNums[i];
+        freeNums[i] = rowNums[i] & colNums[i] & sqrNums[i];
 
     return freeNums;
 }
@@ -244,18 +259,26 @@ int[][] calcBoardEntropy(){
     boolean[] freeNums;
 
     for(int r = 0; r < dim; r++){
-        for(int c = 0; c < dim; r++){
-            if(board[r][c] == 0 || lockBoard[r][c] != 0)
+        for(int c = 0; c < dim; c++){ //<>//
+            freeNums = new boolean[dim];
+            if(board[r][c] == 0 && lockedBoard[r][c] == 0)
                 freeNums = getCellFreeNums(r, c);
 
-            int cellEntropy = 0;
-            for(boolean num: freeNums)
-                if(num)
-                    cellEntropy++;
-
-            boardEntropy[r][c] = 
+                int cellEntropy = 0;
+                for(boolean num: freeNums)
+                    if(num)
+                        cellEntropy++;
+                
+                boardEntropy[r][c] = cellEntropy;
         }
     }
 
+    for(int r = 0; r < dim; r ++){
+        String entropyStr = "";
+        for(int c = 0; c < dim; c++){
+            entropyStr += boardEntropy[r][c] + " ";
+        }
+        println(entropyStr);
+    }
     return boardEntropy;
 }
