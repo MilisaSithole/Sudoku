@@ -1,4 +1,6 @@
-import java.util.BitSet;
+import java.util.Arrays;
+import java.util.PriorityQueue;
+import java.util.Comparator;
 
 int dim = 4;
 float w;
@@ -6,6 +8,8 @@ int[][] board;
 int[][] lockedBoard;
 int[] selectedCell = {-1, -1};
 String inp = "";
+
+Comparator<int[]> entropyComparator = (a, b) -> a[0] - b[0];
 
 void setup() {
     size(800, 800);
@@ -125,11 +129,7 @@ void keyReleased() {
 
     //Debugging
     if(key == 'd'){
-        int[][] eBoard;
-        eBoard = calcBoardEntropy();
-
-        boolean[] freeNums;
-        freeNums = getCellFreeNums(2, 3);
+        solve();
     }
 }
 
@@ -273,12 +273,28 @@ int[][] calcBoardEntropy(){
         }
     }
 
-    for(int r = 0; r < dim; r ++){
-        String entropyStr = "";
-        for(int c = 0; c < dim; c++){
-            entropyStr += boardEntropy[r][c] + " ";
-        }
-        println(entropyStr);
-    }
     return boardEntropy;
+}
+
+void solve(){
+    int[][] boardEntropy;
+    boardEntropy = calcBoardEntropy();
+
+    PriorityQueue<int[]> entropyPQ = new PriorityQueue<>(entropyComparator);
+
+    for(int r = 0; r < dim; r++){
+        for(int c = 0; c < dim; c++){
+            if(lockedBoard[r][c] != 0 || boardEntropy[r][c] == 0)
+                continue;
+
+            int[] ePos = new int[3]; //Entropy Position [E, R, C]
+            ePos[0] = boardEntropy[r][c];
+            ePos[1] = r;
+            ePos[2] = c;
+
+            println("Entropy: " + Arrays.toString(ePos));
+
+            entropyPQ.add(ePos);
+        }
+    }
 }
