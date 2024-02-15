@@ -1,8 +1,9 @@
 import java.util.Arrays;
 import java.util.PriorityQueue;
+import java.util.BitSet;
 import java.util.Comparator;
 
-int dim = 4;
+int dim = 9;
 float w;
 int[][] board;
 int[][] lockedBoard;
@@ -24,26 +25,28 @@ void setup() {
     w = width / (float)dim;
 }
 
-void draw() {
-    drawBoard();
-    drawGrid(color(25));
-}
+// void draw() {
+//     drawBoard();
+//     drawGrid(color(25));
+// }
 
 void drawGrid(color col){
-    float sw = 10;
+    float sw = 5;
     stroke(col);
     for(int r = 0; r < dim+1; r++){
-        strokeWeight(5);
+        strokeWeight(sw);
         if(r % sqrt(dim) == 0)
-            strokeWeight(sw);
+            strokeWeight(sw * 2);
         line(0, r * w, width, r * w);
     }
     for(int c = 0; c < dim+1; c++){
-        strokeWeight(5);
+        strokeWeight(sw);
         if(c % sqrt(dim) == 0)
-            strokeWeight(sw);
+            strokeWeight(sw * 2);
         line(c * w, 0, c * w, height);
     }
+
+    strokeWeight(sw);
 }
 
 void drawBoard(){
@@ -56,7 +59,7 @@ void drawBoard(){
     for(int r = 0; r < dim; r++)
         for(int c = 0; c < dim; c++){
             if(lockedBoard[r][c] != 0){
-                fill(0);
+                fill(31);
                 rect(c * w, r * w, w, w);
                 fill(255);
             }
@@ -88,6 +91,9 @@ void mousePressed() {
             selectedCell[1] = c;
         }
     }
+
+    if(mouseButton == RIGHT)
+        stepSolve();
 }
 
 void keyReleased() {
@@ -108,10 +114,15 @@ void keyReleased() {
         }  
     }
 
-    //Resetting board
-    if(key == 'r'){
+    //New board
+    if(key == 'n'){
         board = new int[dim][dim];
         unlockBoard();
+    }
+
+    //Reset board
+    if(key == 'r'){
+        resetBoard();
     }
 
     //Locking board
@@ -129,6 +140,8 @@ void keyReleased() {
 
     //Debugging
     if(key == 'd'){
+        
+        // println(getCellFreeNums(1, 1).toString());
         solve();
     }
 }
@@ -200,73 +213,69 @@ boolean validateSquare(int r, int c){
     return true;
 }
 
-boolean[] freeNumsRow(int r){
-    boolean[] freeNums = new boolean[dim];
-    for(int i = 0; i < dim; i++)
-        freeNums[i] = true;
+BitSet freeNumsRow(int r){
+    BitSet freeNums = new BitSet(dim);
 
-    for(int c = 0; c < dim; c++) 
+    for(int c = 0; c < dim; c++)
         if(board[r][c] != 0)
-            freeNums[board[r][c] - 1] = false;
+            freeNums.set(board[r][c] - 1);
+            
+    freeNums.flip(0, dim);
 
     return freeNums;
 }
 
-boolean[] freeNumsCol(int c){
-    boolean[] freeNums = new boolean[dim];
-    for(int i = 0; i < dim; i++)
-        freeNums[i] = true;
+BitSet freeNumsCol(int c){
+    BitSet freeNums = new BitSet(dim);
 
     for(int r = 0; r < dim; r++)
         if(board[r][c] != 0)
-            freeNums[board[r][c] - 1] = false;
+            freeNums.set(board[r][c] - 1);
+            
+    freeNums.flip(0, dim);
 
     return freeNums;
 }
 
-boolean[] freeNumsSqr(int r, int c){
-    boolean[] freeNums = new boolean[dim];
-    for(int i = 0; i < dim; i++)
-        freeNums[i] = true;
-
-    int d = floor(sqrt(dim)); //<>//
+BitSet freeNumsSqr(int r, int c){
+    BitSet freeNums = new BitSet(dim); //<>//
+    int d = floor(sqrt(dim));
     r /= d;
     c /= d;
 
     for(int sr = r * d; sr < (r + 1) * d; sr++)
         for(int sc = c * d; sc < (c + 1) * d; sc++)
             if(board[sr][sc] != 0)
-                freeNums[board[sr][sc] - 1] = false;
+                freeNums.set(board[sr][sc] - 1);
+            
+    freeNums.flip(0, dim);
 
     return freeNums;
 }
 
-boolean[] getCellFreeNums(int r, int c){ 
-    boolean[] rowNums, colNums, sqrNums;
-    rowNums = freeNumsRow(r);
-    colNums = freeNumsCol(c);
-    sqrNums = freeNumsSqr(r, c);
+BitSet getCellFreeNums(int r, int c){
+    BitSet freeNums = freeNumsRow(r);
+    freeNums.and(freeNumsCol(c));
+    freeNums.and(freeNumsSqr(r, c));
 
-    boolean[] freeNums = new boolean[dim];
-    for(int i = 0; i < dim; i++)
-        freeNums[i] = rowNums[i] & colNums[i] & sqrNums[i];
+    println("[" + r + " " + c + "] Free nums: " + freeNums.toString());
 
     return freeNums;
 }
 
 int[][] calcBoardEntropy(){
-    int[][] boardEntropy = new int[dim][dim];
-    boolean[] freeNums;
+    int[][] boardEntropy = new int[dim][dim]; 
+    BitSet freeNums; 
 
     for(int r = 0; r < dim; r++){
-        for(int c = 0; c < dim; c++){ //<>//
-            freeNums = new boolean[dim];
+        for(int c = 0; c < dim; c++){ 
+            freeNums = new BitSet(dim);
             if(board[r][c] == 0 && lockedBoard[r][c] == 0)
                 freeNums = getCellFreeNums(r, c);
 
                 int cellEntropy = 0;
-                for(boolean num: freeNums)
-                    if(num)
+                for(int i = 0; i < dim; i++)
+                    if(freeNums.get(i))
                         cellEntropy++;
                 
                 boardEntropy[r][c] = cellEntropy;
@@ -276,14 +285,18 @@ int[][] calcBoardEntropy(){
     return boardEntropy;
 }
 
-void solve(){
+boolean solve(){
     int[][] boardEntropy;
     boardEntropy = calcBoardEntropy();
+    printEntropy(boardEntropy);
+    println("-------");
 
     PriorityQueue<int[]> entropyPQ = new PriorityQueue<>(entropyComparator);
 
+    //Add all cells with entropy to PQ
     for(int r = 0; r < dim; r++){
         for(int c = 0; c < dim; c++){
+            //If locked or cell !empty, skip
             if(lockedBoard[r][c] != 0 || boardEntropy[r][c] == 0)
                 continue;
 
@@ -292,9 +305,75 @@ void solve(){
             ePos[1] = r;
             ePos[2] = c;
 
-            println("Entropy: " + Arrays.toString(ePos));
+            // println("Entropy: " + Arrays.toString(ePos));
 
             entropyPQ.add(ePos);
+        }
+    }
+
+    //If no entropy, cells should be fully solved
+    if(entropyPQ.isEmpty())
+        return true;
+
+    int[] currEntropyPos = entropyPQ.poll();
+    BitSet availNums = getCellFreeNums(currEntropyPos[1], currEntropyPos[2]);
+    // println("Least entropy: " + Arrays.toString(currEntropyPos));
+    // println("Available: " + availNums.toString());
+
+    for(int i = 0; i < dim; i++){
+        if(availNums.get(i)){
+            board[currEntropyPos[1]][currEntropyPos[2]] = 0;
+            board[currEntropyPos[1]][currEntropyPos[2]] = i + 1;
+            drawBoard();
+            drawGrid(color(25));
+            if(solve())
+                break;
+        }
+    }
+
+    
+    return false;
+}
+
+void printEntropy(int[][] boardEntropy){
+    for(int r = 0; r < dim; r++){
+        for(int c = 0; c < dim; c++)
+            print(boardEntropy[r][c] + " ");
+        println();
+    }
+}
+
+void stepSolve(){
+    int[][] boardEntropy;
+    boardEntropy = calcBoardEntropy();
+    printEntropy(boardEntropy);
+    println("-------");
+
+    PriorityQueue<int[]> entropyPQ = new PriorityQueue<>(entropyComparator);
+    for(int r = 0; r < dim; r++){
+        for(int c = 0; c < dim; c++){
+            if(board[r][c] == 0){
+                int[] entropyPos = new int[3];
+                entropyPos[0] = boardEntropy[r][c];
+                entropyPos[1] = r;
+                entropyPos[2] = c;
+
+                entropyPQ.add(entropyPos);
+            }
+        }
+    }
+
+    if(entropyPQ.isEmpty())
+        return;
+
+    int[] currEntropyPos = entropyPQ.poll();
+    BitSet availNums = getCellFreeNums(currEntropyPos[1], currEntropyPos[2]);
+
+    for(int i = 0; i < dim; i++){
+        if(availNums.get(i)){
+            board[currEntropyPos[1]][currEntropyPos[2]] = i + 1;
+            drawBoard();
+            break;
         }
     }
 }
