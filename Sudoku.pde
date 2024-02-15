@@ -1,4 +1,5 @@
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.BitSet;
 import java.util.Comparator;
@@ -8,7 +9,9 @@ float w;
 int[][] board;
 int[][] lockedBoard;
 int[] selectedCell = {-1, -1};
+int[] lastUpdatedCell = {-1, -1};
 String inp = "";
+ArrayList<int[]> steps = new ArrayList<int[]>();
 
 Comparator<int[]> entropyComparator = (a, b) -> a[0] - b[0];
 
@@ -25,10 +28,26 @@ void setup() {
     w = width / (float)dim;
 }
 
-// void draw() {
-//     drawBoard();
-//     drawGrid(color(25));
-// }
+void draw() {
+    if(steps.isEmpty()){
+        drawBoard();
+        drawGrid(color(25));
+        return;
+    }
+
+    if(frameCount % 30 != 0)
+        return;
+
+    if(!steps.isEmpty()){
+        int[] currStep = steps.remove(0);
+        board[currStep[1]][currStep[2]] = currStep[0];
+        lastUpdatedCell[0] = currStep[1];
+        lastUpdatedCell[1] = currStep[2];
+
+        drawBoard();
+        drawGrid(color(25));
+    }
+}
 
 void drawGrid(color col){
     float sw = 5;
@@ -55,6 +74,7 @@ void drawBoard(){
         fill(102);
         rect(selectedCell[1] * w, selectedCell[0] * w, w, w);
     }
+
     fill(255);
     for(int r = 0; r < dim; r++)
         for(int c = 0; c < dim; c++){
@@ -63,9 +83,21 @@ void drawBoard(){
                 rect(c * w, r * w, w, w);
                 fill(255);
             }
+            if(lastUpdatedCell[0]!= -1){
+                fill(102);
+                rect(lastUpdatedCell[1] * w, lastUpdatedCell[0] * w, w, w);
+                fill(255);
+            }
             if(board[r][c] != 0)
                 text(board[r][c], c * w + w/2, r * w + w/2);
         }
+}
+
+void resetBoard(){
+    for(int r = 0; r < dim; r++)
+        for(int c = 0; c < dim; c++)
+            if(lockedBoard[r][c] == 0)
+                board[r][c] = 0;
 }
 
 void lockBoard(){
@@ -118,11 +150,13 @@ void keyReleased() {
     if(key == 'n'){
         board = new int[dim][dim];
         unlockBoard();
+        lastUpdatedCell = new int[]{-1, -1};
     }
 
     //Reset board
     if(key == 'r'){
         resetBoard();
+        lastUpdatedCell = new int[]{-1, -1};
     }
 
     //Locking board
@@ -140,8 +174,7 @@ void keyReleased() {
 
     //Debugging
     if(key == 'd'){
-        
-        // println(getCellFreeNums(1, 1).toString());
+        steps = new ArrayList<int[]>();
         solve();
     }
 }
@@ -285,6 +318,14 @@ int[][] calcBoardEntropy(){
     return boardEntropy;
 }
 
+void printEntropy(int[][] boardEntropy){
+    for(int r = 0; r < dim; r++){
+        for(int c = 0; c < dim; c++)
+            print(boardEntropy[r][c] + " ");
+        println();
+    }
+}
+
 boolean solve(){
     int[][] boardEntropy;
     boardEntropy = calcBoardEntropy();
@@ -292,55 +333,42 @@ boolean solve(){
     println("-------");
 
     PriorityQueue<int[]> entropyPQ = new PriorityQueue<>(entropyComparator);
-
-    //Add all cells with entropy to PQ
     for(int r = 0; r < dim; r++){
         for(int c = 0; c < dim; c++){
-            //If locked or cell !empty, skip
-            if(lockedBoard[r][c] != 0 || boardEntropy[r][c] == 0)
-                continue;
+            if(board[r][c] == 0){
+                int[] entropyPos = new int[3];
+                entropyPos[0] = boardEntropy[r][c];
+                entropyPos[1] = r;
+                entropyPos[2] = c;
 
-            int[] ePos = new int[3]; //Entropy Position [E, R, C]
-            ePos[0] = boardEntropy[r][c];
-            ePos[1] = r;
-            ePos[2] = c;
-
-            // println("Entropy: " + Arrays.toString(ePos));
-
-            entropyPQ.add(ePos);
+                entropyPQ.add(entropyPos);
+            }
         }
     }
 
-    //If no entropy, cells should be fully solved
     if(entropyPQ.isEmpty())
         return true;
 
     int[] currEntropyPos = entropyPQ.poll();
     BitSet availNums = getCellFreeNums(currEntropyPos[1], currEntropyPos[2]);
-    // println("Least entropy: " + Arrays.toString(currEntropyPos));
-    // println("Available: " + availNums.toString());
 
     for(int i = 0; i < dim; i++){
         if(availNums.get(i)){
-            board[currEntropyPos[1]][currEntropyPos[2]] = 0;
             board[currEntropyPos[1]][currEntropyPos[2]] = i + 1;
-            drawBoard();
-            drawGrid(color(25));
+
+            int[] stepArr = new int[3];
+            stepArr[0] = i + 1;
+            stepArr[1] = currEntropyPos[1];
+            stepArr[2] = currEntropyPos[2];
+            steps.add(stepArr);
+            
             if(solve())
-                break;
+                return true;
         }
     }
 
-    
+    board[currEntropyPos[1]][currEntropyPos[2]] = 0;
     return false;
-}
-
-void printEntropy(int[][] boardEntropy){
-    for(int r = 0; r < dim; r++){
-        for(int c = 0; c < dim; c++)
-            print(boardEntropy[r][c] + " ");
-        println();
-    }
 }
 
 void stepSolve(){
