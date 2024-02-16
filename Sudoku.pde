@@ -3,14 +3,15 @@ import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.BitSet;
 import java.util.Comparator;
+import java.time.Instant;
+import java.time.Duration;
 
 int dim = 9;
 float w;
-int[][] board;
-int[][] lockedBoard;
+int[][] board, lockedBoard, solBoard;
 int[] selectedCell = {-1, -1};
-int[] lastUpdatedCell = {-1, -1};
 String inp = "";
+boolean animate = true;
 ArrayList<int[]> steps = new ArrayList<int[]>();
 
 Comparator<int[]> entropyComparator = (a, b) -> a[0] - b[0];
@@ -29,22 +30,24 @@ void setup() {
 }
 
 void draw() {
+    if(!animate)
+        return;
+
     if(steps.isEmpty()){
         drawBoard();
         drawGrid(color(25));
         return;
     }
 
-    if(frameCount % 30 != 0)
+    if(frameCount % 10 != 0)
         return;
 
     if(!steps.isEmpty()){
         int[] currStep = steps.remove(0);
-        board[currStep[1]][currStep[2]] = currStep[0];
-        lastUpdatedCell[0] = currStep[1];
-        lastUpdatedCell[1] = currStep[2];
+        solBoard[currStep[1]][currStep[2]] = currStep[0];
 
-        drawBoard();
+        drawSolBoard();
+        updateCell(currStep[0], currStep[1], currStep[2]);
         drawGrid(color(25));
     }
 }
@@ -83,14 +86,32 @@ void drawBoard(){
                 rect(c * w, r * w, w, w);
                 fill(255);
             }
-            if(lastUpdatedCell[0]!= -1){
-                fill(102);
-                rect(lastUpdatedCell[1] * w, lastUpdatedCell[0] * w, w, w);
-                fill(255);
-            }
             if(board[r][c] != 0)
                 text(board[r][c], c * w + w/2, r * w + w/2);
         }
+}
+
+void drawSolBoard(){
+    background(51);
+
+    fill(255);
+    for(int r = 0; r < dim; r++)
+        for(int c = 0; c < dim; c++){
+            if(lockedBoard[r][c] != 0){
+                fill(31);
+                rect(c * w, r * w, w, w);
+                fill(255);
+            }
+            if(solBoard[r][c] != 0)
+                text(solBoard[r][c], c * w + w/2, r * w + w/2);
+        }
+}
+
+void updateCell(int num, int r, int c){
+    fill(35, 51, 102);
+    rect(c * w, r * w, w, w);
+    fill(255);
+    text(num, c * w + w/2, r * w + w/2);
 }
 
 void resetBoard(){
@@ -150,13 +171,11 @@ void keyReleased() {
     if(key == 'n'){
         board = new int[dim][dim];
         unlockBoard();
-        lastUpdatedCell = new int[]{-1, -1};
     }
 
     //Reset board
     if(key == 'r'){
         resetBoard();
-        lastUpdatedCell = new int[]{-1, -1};
     }
 
     //Locking board
@@ -174,8 +193,20 @@ void keyReleased() {
 
     //Debugging
     if(key == 'd'){
+        animate = false;
+
+        solBoard = new int[dim][dim];
+        for(int r = 0; r < dim; r++)
+            for(int c = 0; c < dim; c++)
+                solBoard[r][c] = board[r][c];
+
         steps = new ArrayList<int[]>();
+        Instant startTime = Instant.now();
         solve();
+        Duration elapsedTime = Duration.between(startTime, Instant.now());
+        println("Time taken: " + elapsedTime.toMillis() + " ms");
+
+        animate = true;
     }
 }
 
@@ -291,8 +322,6 @@ BitSet getCellFreeNums(int r, int c){
     freeNums.and(freeNumsCol(c));
     freeNums.and(freeNumsSqr(r, c));
 
-    println("[" + r + " " + c + "] Free nums: " + freeNums.toString());
-
     return freeNums;
 }
 
@@ -318,6 +347,28 @@ int[][] calcBoardEntropy(){
     return boardEntropy;
 }
 
+int[][] calcBoardEntropyForR(){
+    int[][] boardEntropy = new int[dim][dim]; 
+    BitSet freeNums; 
+
+    for(int r = 0; r < dim; r++){
+        for(int c = 0; c < dim; c++){ 
+            freeNums = new BitSet(dim);
+            if(solBoard[r][c] == 0 && lockedBoard[r][c] == 0)
+                freeNums = getCellFreeNums(r, c);
+
+                int cellEntropy = 0;
+                for(int i = 0; i < dim; i++)
+                    if(freeNums.get(i))
+                        cellEntropy++;
+                
+                boardEntropy[r][c] = cellEntropy;
+        }
+    }
+
+    return boardEntropy;
+}
+
 void printEntropy(int[][] boardEntropy){
     for(int r = 0; r < dim; r++){
         for(int c = 0; c < dim; c++)
@@ -329,8 +380,6 @@ void printEntropy(int[][] boardEntropy){
 boolean solve(){
     int[][] boardEntropy;
     boardEntropy = calcBoardEntropy();
-    printEntropy(boardEntropy);
-    println("-------");
 
     PriorityQueue<int[]> entropyPQ = new PriorityQueue<>(entropyComparator);
     for(int r = 0; r < dim; r++){
@@ -374,8 +423,6 @@ boolean solve(){
 void stepSolve(){
     int[][] boardEntropy;
     boardEntropy = calcBoardEntropy();
-    printEntropy(boardEntropy);
-    println("-------");
 
     PriorityQueue<int[]> entropyPQ = new PriorityQueue<>(entropyComparator);
     for(int r = 0; r < dim; r++){
